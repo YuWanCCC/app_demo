@@ -1,0 +1,12 @@
+{
+    "classes_file": "/oem/usr/share/models/detect_classes.txt",
+    "clip_text_model": "/oem/usr/share/models/clip_text.rknn",
+    "yolo_world_model":"/oem/usr/share/models/yolo_world_v2s_rv1126b_hybrid.rknn",
+    "ckpt_model":"/oem/usr/share/models/ckpt.rknn",
+    "max_cosine_distance": 0.2,
+    "nn_budget": 100,
+    "nms_threshold":0.45,
+    "confidence_threshold":0.25,
+    "tracker_det_name":"person"
+}
+  

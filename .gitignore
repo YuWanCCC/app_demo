@@ -1,0 +1,33 @@
+# ---------- 交叉编译工具链 ----------
+/toolchain/
+
+# ---------- SDK 打包输出（头文件/库/可执行文件） ----------
+/media_out/
+
+# ---------- 预编译第三方工具包 ----------
+/third_party/toolkits/
+
+# ---------- 构建产物 ----------
+/out/
+build/
+app/out/
+app/*/out/
+app/*/build/
+app/*/install/
+app/*/*/out/
+app/*/*/build/
+app/*/*/install/
+
+# ---------- 超出 GitHub 单文件 100MB 限制的资源 ----------
+app/testdemo/yoloworld_demo/resources/models/clip_text.rknn
+
+# ---------- 构建日志 ----------
+*.log
+
+# ---------- 编辑器/系统缓存 ----------
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*~
+.DS_Store

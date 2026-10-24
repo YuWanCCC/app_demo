@@ -1,0 +1,21 @@
+
+#define  SERVER_PORT  60088
+#define  CONNECT_IP   "192.168.5.12"
+typedef struct CommandData
+{
+    int cmdId;
+    int seqNum;
+    int cmdLen;
+} CommandData_t;
+
+enum COMMAND_ID
+{
+    PROCESS_STREAM = 0x00000001,
+    PROCESS_STREAM_RESP = 0x80000001,
+    START_STREAM = 0x00000002,
+    START_STREAM_RESP = 0x80000002,
+    STOP_STREAM = 0x00000003,
+    STOP_STREAM_RESP = 0x80000003,
+    START_VSYNC = 0x00000004,
+    START_VSYNC_RESP = 0x80000004,
+};

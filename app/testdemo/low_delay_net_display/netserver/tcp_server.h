@@ -1,0 +1,70 @@
+#ifndef TCP_SERVER_H
+#define TCP_SERVER_H
+
+#include <algorithm>
+#include <arpa/inet.h>
+#include <cctype>
+#include <iostream>
+#include <mutex>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <thread>
+#include <unistd.h>
+#include <vector>
+#include <memory>   // for std::shared_ptr
+#include <thread>   // for std::thread
+#include <vector>   // for std::vector
+#include "../logger/log.h"
+
+using namespace std;
+
+#define MAXPACKETSIZE 8192
+#define MAX_CLIENT 1000
+
+using TcpRecvCallBack =
+    add_pointer<void(int sockfd, char *buffer, int size)>::type;
+
+class TCPServer
+{
+public:
+    TCPServer()
+    {
+        quit_ = 0;
+    };
+    virtual ~TCPServer();
+
+    int Send(char *buff, int size);
+    int Process(int port);
+
+    void RegisterRecvCallBack(TcpRecvCallBack cb)
+    {
+        callback_ = cb;
+    }
+    void UnRegisterRecvCallBack()
+    {
+        callback_ = nullptr;
+    }
+    void SaveEixt();
+
+private:
+    void Accepted();
+    int Recvieve(int cilent_socket);
+
+private:
+    int sockfd;
+    int quit_;
+    int client_sockfd;
+    struct sockaddr_in serverAddress;
+    struct sockaddr_in clientAddress;
+    vector<shared_ptr<thread>> accept_threads_;
+    vector<shared_ptr<thread>> recv_threads_;
+    TcpRecvCallBack callback_;
+};
+
+#endif

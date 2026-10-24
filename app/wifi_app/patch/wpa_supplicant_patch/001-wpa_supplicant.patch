@@ -1,0 +1,172 @@
+diff --git a/src/rsn_supp/wpa.c b/wpa.c
+index 2a53c6f..f2946f1 100644
+--- a/src/rsn_supp/wpa.c
++++ b/wpa.c
+@@ -23,6 +23,7 @@
+ #include "wpa_ie.h"
+ #include "peerkey.h"
+ 
++#define FASTLINK_SNONCE_PATH "/data/fastlink_snonce.bin"
+ 
+ static const u8 null_rsc[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+ 
+@@ -452,6 +453,7 @@ static void wpa_supplicant_process_1_of_4(struct wpa_sm *sm,
+ 	int res;
+ 	u8 *kde, *kde_buf = NULL;
+ 	size_t kde_len;
++	FILE *fp = NULL;
+ 
+ 	if (wpa_sm_get_network_ctx(sm) == NULL) {
+ 		wpa_msg(sm->ctx->msg_ctx, MSG_WARNING, "WPA: No SSID info "
+@@ -487,10 +489,38 @@ static void wpa_supplicant_process_1_of_4(struct wpa_sm *sm,
+ 		goto failed;
+ 
+ 	if (sm->renew_snonce) {
+-		if (random_get_bytes(sm->snonce, WPA_NONCE_LEN)) {
+-			wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
+-				"WPA: Failed to get random data for SNonce");
+-			goto failed;
++		if (os_file_exists(FASTLINK_SNONCE_PATH)) {
++			/* read wpa_nonce */
++			fp = fopen(FASTLINK_SNONCE_PATH, "rb");
++			if (fp == NULL) {
++				wpa_printf(MSG_DEBUG, "WPA: line %d, Open fastlink_snonce.bin failed !!!", __LINE__);
++				goto failed;
++			}
++			if (fread(sm->snonce, sizeof(u8), WPA_NONCE_LEN, fp) != WPA_NONCE_LEN) {
++				wpa_printf(MSG_INFO, "WPA: Read snonce failed !!!");
++				fclose(fp);
++                fp = NULL;
++				goto failed;
++			}
++			wpa_hexdump(MSG_DEBUG, "Read file WPA: Renewed SNonce",
++				    sm->snonce, WPA_NONCE_LEN);
++		} else {
++			if (random_get_bytes(sm->snonce, WPA_NONCE_LEN)) {
++				wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
++					"WPA: Failed to get random data for SNonce");
++				goto failed;
++			}
++			/* save wpa_nonce */
++			fp = fopen(FASTLINK_SNONCE_PATH, "wb");
++			if (fp != NULL) {
++				fwrite(sm->snonce, sizeof(u8), WPA_NONCE_LEN, fp);
++				os_fdatasync(fp);
++				fclose(fp);
++                fp = NULL;
++			} else {
++				wpa_printf(MSG_DEBUG, "WPA: line %d, Open fastlink_snonce.bin failed !!!", __LINE__);
++				goto failed;
++			}
+ 		}
+ 		sm->renew_snonce = 0;
+ 		wpa_hexdump(MSG_DEBUG, "WPA: Renewed SNonce",
+@@ -536,13 +566,25 @@ static void wpa_supplicant_process_1_of_4(struct wpa_sm *sm,
+ 
+ 	if (wpa_supplicant_send_2_of_4(sm, sm->bssid, key, ver, sm->snonce,
+ 				       kde, kde_len, ptk) < 0)
+-		goto failed;
+-
++    {
++        goto failed;
++    }
++
++    if(fp != NULL)
++    {
++        fclose(fp);
++        fp = NULL;
++    }
+ 	os_free(kde_buf);
+ 	os_memcpy(sm->anonce, key->key_nonce, WPA_NONCE_LEN);
+ 	return;
+ 
+ failed:
++    if(fp != NULL)
++    {
++        fclose(fp);
++        fp = NULL;
++    }
+ 	os_free(kde_buf);
+ 	wpa_sm_deauthenticate(sm, WLAN_REASON_UNSPECIFIED);
+ }
+@@ -1796,6 +1838,30 @@ static void wpa_eapol_key_dump(struct wpa_sm *sm,
+ #endif /* CONFIG_NO_STDOUT_DEBUG */
+ }
+ 
++#define KEY_UPDATE_SM_PATH "/data/key_update_sm.txt"
++struct wpa_sm_rk962 {
++    u8 pmk[PMK_LEN_MAX];
++    size_t pmk_len;
++    struct wpa_ptk ptk, tptk;
++    int ptk_set, tptk_set;
++    u8 snonce[WPA_NONCE_LEN];
++    u8 anonce[WPA_NONCE_LEN]; /* ANonce from the last 1/4 msg */
++
++    u8 rx_replay_counter[WPA_REPLAY_COUNTER_LEN];
++    int rx_replay_counter_set;
++
++    u8 own_addr[ETH_ALEN];
++    u8 bssid[ETH_ALEN];
++
++    /* Selected configuration (based on Beacon/ProbeResp WPA IE) */
++    unsigned int proto;
++    unsigned int pairwise_cipher;
++    unsigned int group_cipher;
++    unsigned int key_mgmt;
++
++    u8 *assoc_wpa_ie; /* Own WPA/RSN IE from (Re)AssocReq */
++    size_t assoc_wpa_ie_len;
++};
+ 
+ /**
+  * wpa_sm_rx_eapol - Process received WPA EAPOL frames
+@@ -1826,7 +1892,7 @@ int wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr,
+ 	struct wpa_peerkey *peerkey = NULL;
+ 	u8 *key_data;
+ 	size_t mic_len, keyhdrlen;
+-
++    struct wpa_sm_rk962 sm_rk962;
+ #ifdef CONFIG_IEEE80211R
+ 	sm->ft_completed = 0;
+ #endif /* CONFIG_IEEE80211R */
+@@ -2089,6 +2155,40 @@ int wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr,
+ 			peerkey_rx_eapol_4way(sm, peerkey, key, key_info, ver,
+ 					      key_data, key_data_len);
+ 		} else if (key_info & WPA_KEY_INFO_MIC) {
++            #if 1
++            os_memset(&sm_rk962, 0, sizeof(struct wpa_sm_rk962));
++
++            memcpy(&sm_rk962.ptk, &sm->ptk, sizeof(struct wpa_ptk));
++            sm_rk962.ptk_set = sm->ptk_set;
++
++            memcpy(&sm_rk962.tptk, &sm->tptk, sizeof(struct wpa_ptk));
++            sm_rk962.tptk_set = sm->tptk_set;
++
++            memcpy(sm_rk962.rx_replay_counter, sm->rx_replay_counter, WPA_REPLAY_COUNTER_LEN);
++            sm_rk962.rx_replay_counter_set = sm->rx_replay_counter_set;
++
++            sm_rk962.proto = sm->proto;
++            sm_rk962.key_mgmt = sm->key_mgmt;
++
++            //Add more members for four-way-handshake
++            memcpy(sm_rk962.pmk, sm->pmk, sm->pmk_len);
++            sm_rk962.pmk_len = sm->pmk_len;
++            memcpy(sm_rk962.own_addr, sm->own_addr, ETH_ALEN);
++            memcpy(sm_rk962.bssid, sm->bssid, ETH_ALEN);
++            sm_rk962.pairwise_cipher = sm->pairwise_cipher;
++            sm_rk962.group_cipher = sm->group_cipher;
++            sm_rk962.assoc_wpa_ie_len = sm->assoc_wpa_ie_len;
++
++            FILE *file = fopen(KEY_UPDATE_SM_PATH, "wb");
++            if (file != NULL) {
++                fwrite(&sm_rk962, sizeof(struct wpa_sm_rk962), 1, file);
++                fclose(file);
++                //wpa_printf(MSG_DEBUG, "quzz line %d, %s,success\n", __LINE__, __func__);
++            } else {
++                //wpa_printf(MSG_DEBUG, "quzz line %d, %s,failed\n", __LINE__, __func__);
++            }
++            #endif
++            //wpa_hexdump_key(MSG_DEBUG, "quzz22,WPA: KCK", sm->ptk.kck, sm->ptk.kck_len);
+ 			/* 3/4 4-Way Handshake */
+ 			wpa_supplicant_process_3_of_4(sm, key, ver, key_data,
+ 						      key_data_len);
