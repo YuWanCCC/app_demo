@@ -1,3 +1,3 @@
-rkadk
-build
-out
+# 构建产物（源码目录 rkadk/ 必须入库，不能在此忽略）
+build/
+out/

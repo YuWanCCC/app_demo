@@ -1,4 +1,9 @@
-*.tar.*
-build
-lvgl*
-out
+# 解压后的 lvgl 源码目录与构建产物（不入库）
+lvgl/
+lvgl-8.4.0/
+build/
+out/
+
+# 注意：lvgl-patches/ 补丁必须入库；lvgl 源码包由 Makefile 从
+# https://github.com/lvgl/lvgl/archive/refs/tags/v8.4.0.tar.gz 获取，
+# 如需完全离线构建可把 v8.4.0.tar.gz 一并入库
