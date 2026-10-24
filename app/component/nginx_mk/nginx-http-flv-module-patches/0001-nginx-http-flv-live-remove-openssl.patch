@@ -1,0 +1,134 @@
+diff --git a/config b/config
+index 56b3429..bae9352 100755
+--- a/config
++++ b/config
+@@ -154,5 +154,5 @@ else
+     CFLAGS="$CFLAGS -I$ngx_addon_dir"
+ fi
+ 
+-USE_OPENSSL=YES
++#USE_OPENSSL=YES
+ 
+diff --git a/hls/ngx_rtmp_hls_module.c b/hls/ngx_rtmp_hls_module.c
+index ea97d15..53185d2 100755
+--- a/hls/ngx_rtmp_hls_module.c
++++ b/hls/ngx_rtmp_hls_module.c
+@@ -884,13 +884,13 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
+ 
+             ctx->key_frags = hacf->frags_per_key - 1;
+             ctx->key_id = id;
+-
++/*
+             if (RAND_bytes(ctx->key, 16) < 0) {
+                 ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                               "hls: failed to create key");
+                 return NGX_ERROR;
+             }
+-
++*/
+             ngx_sprintf(ctx->keyfile.data + ctx->keyfile.len, "%uL.key%Z", id);
+ 
+             fd = ngx_open_file(ctx->keyfile.data, NGX_FILE_WRONLY,
+diff --git a/hls/ngx_rtmp_mpegts.c b/hls/ngx_rtmp_mpegts.c
+index ae66f71..9ae5f82 100755
+--- a/hls/ngx_rtmp_mpegts.c
++++ b/hls/ngx_rtmp_mpegts.c
+@@ -111,7 +111,7 @@ ngx_rtmp_mpegts_write_file(ngx_rtmp_mpegts_file_t *file, u_char *in,
+         in += 16 - file->size;
+         in_size -= 16 - file->size;
+ 
+-        AES_cbc_encrypt(file->buf, out, 16, &file->key, file->iv, AES_ENCRYPT);
++        //AES_cbc_encrypt(file->buf, out, 16, &file->key, file->iv, AES_ENCRYPT);
+ 
+         out += 16;
+         out_size -= 16;
+@@ -127,7 +127,7 @@ ngx_rtmp_mpegts_write_file(ngx_rtmp_mpegts_file_t *file, u_char *in,
+                 n = out_size;
+             }
+ 
+-            AES_cbc_encrypt(in, out, n, &file->key, file->iv, AES_ENCRYPT);
++            //AES_cbc_encrypt(in, out, n, &file->key, file->iv, AES_ENCRYPT);
+ 
+             in += n;
+             in_size -= n;
+@@ -327,9 +327,9 @@ ngx_int_t
+ ngx_rtmp_mpegts_init_encryption(ngx_rtmp_mpegts_file_t *file,
+     u_char *key, size_t key_len, uint64_t iv)
+ {
+-    if (AES_set_encrypt_key(key, key_len * 8, &file->key)) {
+-        return NGX_ERROR;
+-    }
++    //if (AES_set_encrypt_key(key, key_len * 8, &file->key)) {
++    //   return NGX_ERROR;
++    //}
+ 
+     ngx_memzero(file->iv, 8);
+ 
+@@ -385,7 +385,7 @@ ngx_rtmp_mpegts_close_file(ngx_rtmp_mpegts_file_t *file)
+     if (file->encrypt) {
+         ngx_memset(file->buf + file->size, 16 - file->size, 16 - file->size);
+ 
+-        AES_cbc_encrypt(file->buf, buf, 16, &file->key, file->iv, AES_ENCRYPT);
++        //AES_cbc_encrypt(file->buf, buf, 16, &file->key, file->iv, AES_ENCRYPT);
+ 
+         rc = ngx_write_fd(file->fd, buf, 16);
+         if (rc < 0) {
+diff --git a/hls/ngx_rtmp_mpegts.h b/hls/ngx_rtmp_mpegts.h
+index c128a51..f75295f 100755
+--- a/hls/ngx_rtmp_mpegts.h
++++ b/hls/ngx_rtmp_mpegts.h
+@@ -10,7 +10,6 @@
+ 
+ #include <ngx_config.h>
+ #include <ngx_core.h>
+-#include <openssl/aes.h>
+ 
+ 
+ typedef struct {
+@@ -20,7 +19,6 @@ typedef struct {
+     unsigned    size:4;
+     u_char      buf[16];
+     u_char      iv[16];
+-    AES_KEY     key;
+ } ngx_rtmp_mpegts_file_t;
+ 
+ 
+diff --git a/ngx_rtmp_handshake.c b/ngx_rtmp_handshake.c
+index 5027c1f..c1f63c1 100755
+--- a/ngx_rtmp_handshake.c
++++ b/ngx_rtmp_handshake.c
+@@ -8,8 +8,6 @@
+ #include <ngx_core.h>
+ #include "ngx_rtmp.h"
+ 
+-#include <openssl/hmac.h>
+-#include <openssl/sha.h>
+ 
+ 
+ static void ngx_rtmp_handshake_send(ngx_event_t *wev);
+@@ -71,7 +69,7 @@ ngx_rtmp_client_version[4] = {
+ };
+ 
+ 
+-#define NGX_RTMP_HANDSHAKE_KEYLEN                   SHA256_DIGEST_LENGTH
++#define NGX_RTMP_HANDSHAKE_KEYLEN                   32
+ #define NGX_RTMP_HANDSHAKE_BUFSIZE                  1537
+ 
+ 
+@@ -104,6 +102,7 @@ static ngx_int_t
+ ngx_rtmp_make_digest(ngx_str_t *key, ngx_buf_t *src,
+         u_char *skip, u_char *dst, ngx_log_t *log)
+ {
++/*
+     static HMAC_CTX        *hmac;
+     unsigned int            len;
+ 
+@@ -135,7 +134,7 @@ ngx_rtmp_make_digest(ngx_str_t *key, ngx_buf_t *src,
+     }
+ 
+     HMAC_Final(hmac, dst, &len);
+-
++*/
+     return NGX_OK;
+ }
+ 

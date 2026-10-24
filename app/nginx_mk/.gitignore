@@ -1,4 +1,9 @@
-*.tar.*
-nginx*
+# 构建输出与解压后的源码目录（由 tar 包自动解压，不入库）
 out/
-pcre2*
+build/
+nginx-1.24.0/
+nginx-http-flv-module-1.2.10/
+pcre2-10.45/
+
+# 注意：源码 tar 包与 *-patches/ 补丁目录必须入库，
+# 否则离线环境 make 会走 wget 下载分支而失败
